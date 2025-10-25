@@ -1,0 +1,307 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  name          String
+  role          String   @default("staff") // admin, manager, staff, waiter
+  phone         String?
+  storeId       String?
+  store         Store?   @relation(fields: [storeId], references: [id])
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  orders        Order[]
+  activities    Activity[]
+}
+
+model Store {
+  id              String    @id @default(uuid())
+  name            String
+  type            String    @default("retail") // retail, restaurant, both
+  address         String?
+  phone           String?
+  email           String?
+  gstNumber       String?
+  logo            String?
+  receiptFooter   String?
+  subscriptionId  String?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  users           User[]
+  products        Product[]
+  categories      Category[]
+  orders          Order[]
+  customers       Customer[]
+  tables          Table[]
+  printers        Printer[]
+  inventory       Inventory[]
+  expenses        Expense[]
+}
+
+model Subscription {
+  id            String   @id @default(uuid())
+  plan          String   // free, basic, premium, enterprise
+  startDate     DateTime @default(now())
+  endDate       DateTime
+  status        String   @default("active") // active, expired, cancelled
+  paymentId     String?
+  amount        Float    @default(0)
+  stores        Store[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  storeId   String
+  store     Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  icon      String?
+  color     String?
+  sortOrder Int       @default(0)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id            String      @id @default(uuid())
+  name          String
+  sku           String?
+  barcode       String?
+  categoryId    String
+  category      Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  storeId       String
+  store         Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  price         Float
+  costPrice     Float       @default(0)
+  taxRate       Float       @default(0)
+  description   String?
+  image         String?
+  type          String      @default("simple") // simple, variant
+  variants      ProductVariant[]
+  addons        ProductAddon[]
+  inventory     Inventory[]
+  orderItems    OrderItem[]
+  active        Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model ProductVariant {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name        String
+  price       Float
+  sku         String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ProductAddon {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name        String
+  price       Float
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Inventory {
+  id            String   @id @default(uuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  storeId       String
+  store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  quantity      Int      @default(0)
+  minStock      Int      @default(10)
+  batchNumber   String?
+  expiryDate    DateTime?
+  supplierId    String?
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Supplier {
+  id          String      @id @default(uuid())
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  gstNumber   String?
+  inventory   Inventory[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Table {
+  id          String   @id @default(uuid())
+  number      String
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  capacity    Int      @default(4)
+  status      String   @default("available") // available, occupied, reserved
+  x           Float    @default(0)
+  y           Float    @default(0)
+  orders      Order[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  storeId         String
+  store           Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  customerId      String?
+  customer        Customer?   @relation(fields: [customerId], references: [id])
+  tableId         String?
+  table           Table?      @relation(fields: [tableId], references: [id])
+  type            String      @default("retail") // retail, dine-in, takeaway, delivery
+  status          String      @default("pending") // pending, preparing, ready, completed, cancelled
+  items           OrderItem[]
+  subtotal        Float       @default(0)
+  discount        Float       @default(0)
+  discountType    String      @default("fixed") // fixed, percentage
+  tax             Float       @default(0)
+  total           Float       @default(0)
+  paymentMethod   String?     // cash, card, upi, wallet
+  paymentStatus   String      @default("pending") // pending, paid, partial
+  paidAmount      Float       @default(0)
+  notes           String?
+  synced          Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  name        String
+  quantity    Int
+  price       Float
+  taxRate     Float    @default(0)
+  addons      String?  // JSON string of selected addons
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Customer {
+  id              String     @id @default(uuid())
+  name            String
+  email           String?
+  phone           String     @unique
+  storeId         String
+  store           Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  address         String?
+  dateOfBirth     DateTime?
+  anniversary     DateTime?
+  loyaltyPoints   Int        @default(0)
+  totalSpent      Float      @default(0)
+  visitCount      Int        @default(0)
+  segment         String     @default("new") // new, regular, loyal, vip
+  lastVisit       DateTime?
+  orders          Order[]
+  campaigns       CampaignLog[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model Campaign {
+  id          String        @id @default(uuid())
+  name        String
+  type        String        // whatsapp, sms, email
+  message     String
+  segment     String?       // all, new, regular, loyal, vip
+  scheduled   DateTime?
+  sent        Boolean       @default(false)
+  logs        CampaignLog[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model CampaignLog {
+  id          String    @id @default(uuid())
+  campaignId  String
+  campaign    Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  status      String    @default("pending") // pending, sent, delivered, failed
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Printer {
+  id          String   @id @default(uuid())
+  name        String
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  type        String   // receipt, kitchen, bar
+  connection  String   // bluetooth, usb, wifi
+  address     String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category    String
+  amount      Float
+  description String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Activity {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      String
+  entity      String
+  entityId    String?
+  metadata    String?  // JSON string
+  createdAt   DateTime @default(now())
+}
+
+model AIInsight {
+  id          String   @id @default(uuid())
+  type        String   // forecast, trend, alert, recommendation
+  title       String
+  description String
+  data        String?  // JSON string
+  priority    String   @default("normal") // low, normal, high
+  read        Boolean  @default(false)
+  validUntil  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
